@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Issue 自動作成ツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      background: #f6f8fa;
+      color: #24292f;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #57606a;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9,105,218,.15);
+    }
+
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .file-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #f6f8fa;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .file-label:hover { background: #eef1f4; }
+
+    input[type="file"] { display: none; }
+
+    .file-name {
+      color: #57606a;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid;
+      font-family: inherit;
+    }
+
+    .btn-default {
+      background: #f6f8fa;
+      border-color: #d0d7de;
+      color: #24292f;
+    }
+    .btn-default:hover { background: #eef1f4; }
+
+    .btn-primary {
+      background: #1f883d;
+      border-color: #1f7a38;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #1a7535; }
+
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    /* Preview */
+    .preview-empty {
+      color: #57606a;
+      font-size: 13px;
+    }
+
+    .group-block { margin-bottom: 16px; }
+
+    .group-name {
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #57606a;
+    }
+
+    .issue-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid #f0f0f0;
+      flex-wrap: wrap;
+    }
+
+    .issue-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+    }
+
+    .label-chip {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #ddf4ff;
+      color: #0550ae;
+      white-space: nowrap;
+    }
+
+    /* Log */
+    .log {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.8;
+    }
+
+    .log-empty { color: #57606a; font-size: 13px; font-family: inherit; }
+
+    .log-ok   { color: #1a7f37; }
+    .log-fail { color: #cf222e; }
+    .log-info { color: #57606a; }
+
+    .summary {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>GitHub Issue 自動作成ツール</h1>
+
+  <!-- 認証情報 -->
+  <div class="card">
+    <h2>リポジトリ / 認証情報</h2>
+    <label for="repo">対象リポジトリ（owner/repo）</label>
+    <input type="text" id="repo" placeholder="例: octocat/Hello-World">
+    <label for="token">アクセストークン</label>
+    <input type="password" id="token" placeholder="ghp_...">
+  </div>
+
+  <!-- ファイル選択 -->
+  <div class="card">
+    <h2>Issue リスト（Markdown ファイル）</h2>
+    <div class="file-row">
+      <label class="file-label" for="mdfile">
+        📄 ファイルを選択
+      </label>
+      <input type="file" id="mdfile" accept=".md,.txt">
+      <span class="file-name" id="fileName">未選択</span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-default" id="btnParse" disabled>解析</button>
+    </div>
+  </div>
+
+  <!-- プレビュー -->
+  <div class="card">
+    <h2>プレビュー</h2>
+    <div id="preview"><p class="preview-empty">ファイルを選択して「解析」を押してください。</p></div>
+    <div class="actions">
+      <button class="btn btn-primary" id="btnCreate" disabled>Issue 作成</button>
+    </div>
+  </div>
+
+  <!-- ログ -->
+  <div class="card">
+    <h2>実行ログ</h2>
+    <div id="log" class="log"><span class="log-empty">まだ実行されていません。</span></div>
+    <div id="summary" class="summary"></div>
+  </div>
+</div>
+
+<script>
+  // ---- DOM refs ----
+  const mdFileInput = document.getElementById('mdfile');
+  const fileNameEl  = document.getElementById('fileName');
+  const btnParse    = document.getElementById('btnParse');
+  const btnCreate   = document.getElementById('btnCreate');
+  const previewEl   = document.getElementById('preview');
+  const logEl       = document.getElementById('log');
+  const summaryEl   = document.getElementById('summary');
+  const repoInput   = document.getElementById('repo');
+  const tokenInput  = document.getElementById('token');
+
+  let parsedGroups = [];
+  let mdText = '';
+
+  // ---- File select ----
+  mdFileInput.addEventListener('change', () => {
+    const file = mdFileInput.files[0];
+    if (!file) return;
+    fileNameEl.textContent = file.name;
+    btnParse.disabled = false;
+    btnCreate.disabled = true;
+    previewEl.innerHTML = '<p class="preview-empty">「解析」を押してプレビューを表示してください。</p>';
+    parsedGroups = [];
+
+    const reader = new FileReader();
+    reader.onload = e => { mdText = e.target.result; };
+    reader.readAsText(file, 'UTF-8');
+  });
+
+  // ---- Parse ----
+  btnParse.addEventListener('click', () => {
+    if (!mdText) return;
+    parsedGroups = parseMarkdown(mdText);
+    renderPreview(parsedGroups);
+    btnCreate.disabled = parsedGroups.length === 0;
+  });
+
+  // ---- Create ----
+  btnCreate.addEventListener('click', async () => {
+    const repo  = repoInput.value.trim();
+    const token = tokenInput.value.trim();
+    if (!repo)  { alert('リポジトリ名を入力してください。'); return; }
+    if (!token) { alert('アクセストークンを入力してください。'); return; }
+
+    btnCreate.disabled = true;
+    btnParse.disabled  = true;
+    logEl.innerHTML    = '';
+    summaryEl.textContent = '';
+
+    await createIssues(repo, token, parsedGroups);
+
+    btnCreate.disabled = false;
+    btnParse.disabled  = false;
+  });
+
+  // ---- parseMarkdown ----
+  function parseMarkdown(text) {
+    const lines = text.split('\n');
+    let inCodeBlock = false;
+    const groupStarts = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (trimmed.startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+      } else if (!inCodeBlock && trimmed.startsWith('####')) {
+        groupStarts.push(i);
+      }
+    }
+
+    const groups = [];
+    for (let gi = 0; gi < groupStarts.length; gi++) {
+      const startIdx = groupStarts[gi];
+      const endIdx   = gi + 1 < groupStarts.length ? groupStarts[gi + 1] : lines.length;
+      const groupName    = lines[startIdx].replace(/^#{4}\s*/, '').trim();
+      const groupContent = lines.slice(startIdx + 1, endIdx).join('\n');
+
+      // タイトル
+      const titlesMatch = groupContent.match(/タイトル:\s*\n([\s\S]*?)(?=\n本文:)/);
+      const titles = titlesMatch
+        ? titlesMatch[1].split('\n').map(t => t.trim()).filter(Boolean)
+        : [];
+
+      // 本文
+      const bodyMatch = groupContent.match(/本文:\n```([\s\S]*?)```/);
+      const body = bodyMatch ? bodyMatch[1].trim() : '';
+
+      // ラベル
+      const labelsMatch = groupContent.match(/ラベル:\n([\s\S]*?)(?=\n|$)/);
+      const labels = [];
+      if (labelsMatch) {
+        labelsMatch[1].split('\n').forEach(line => {
+          line.split(',').forEach(l => {
+            const v = l.trim();
+            if (v) labels.push(v);
+          });
+        });
+      }
+
+      if (titles.length > 0) {
+        groups.push({ name: groupName, titles, body, labels });
+      }
+    }
+    return groups;
+  }
+
+  // ---- renderPreview ----
+  function renderPreview(groups) {
+    if (groups.length === 0) {
+      previewEl.innerHTML = '<p class="preview-empty">Issue グループが見つかりませんでした。Markdown のフォーマットを確認してください。</p>';
+      return;
+    }
+
+    let html = '';
+    let total = 0;
+    groups.forEach(g => {
+      html += `<div class="group-block">`;
+      html += `<div class="group-name">${escHtml(g.name)}</div>`;
+      g.titles.forEach(title => {
+        total++;
+        const chips = g.labels.map(l => `<span class="label-chip">${escHtml(l)}</span>`).join('');
+        html += `<div class="issue-row"><span class="issue-title">${escHtml(title)}</span>${chips}</div>`;
+      });
+      html += `</div>`;
+    });
+    html += `<p style="margin-top:8px;font-size:13px;color:#57606a;">合計 ${total} 件の Issue を作成します。</p>`;
+    previewEl.innerHTML = html;
+  }
+
+  // ---- createIssues ----
+  async function createIssues(repo, token, groups) {
+    const url     = `https://api.github.com/repos/${repo}/issues`;
+    const headers = {
+      'Authorization': `token ${token}`,
+      'Content-Type': 'application/json'
+    };
+
+    let ok = 0, fail = 0;
+
+    for (const group of groups) {
+      for (const title of group.titles) {
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ title, body: group.body, labels: group.labels })
+          });
+          if (res.status === 201) {
+            ok++;
+            appendLog('ok', `✓ ${title}`);
+          } else {
+            fail++;
+            const txt = await res.text();
+            appendLog('fail', `✗ ${title}  (${res.status}) ${txt}`);
+          }
+        } catch (err) {
+          fail++;
+          appendLog('fail', `✗ ${title}  Error: ${err.message}`);
+        }
+      }
+    }
+
+    summaryEl.textContent = `完了： 成功 ${ok} 件 / 失敗 ${fail} 件`;
+  }
+
+  // ---- helpers ----
+  function appendLog(type, text) {
+    const span = document.createElement('div');
+    span.className = type === 'ok' ? 'log-ok' : type === 'fail' ? 'log-fail' : 'log-info';
+    span.textContent = text;
+    if (logEl.querySelector('.log-empty')) logEl.innerHTML = '';
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
