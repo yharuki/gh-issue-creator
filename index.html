@@ -223,6 +223,7 @@
     </div>
     <div class="actions">
       <button class="btn btn-default" id="btnParse" disabled>解析</button>
+      <button class="btn btn-default" id="btnTemplate">テンプレートをダウンロード</button>
     </div>
   </div>
 
@@ -255,8 +256,23 @@
   const repoInput   = document.getElementById('repo');
   const tokenInput  = document.getElementById('token');
 
+  const btnTemplate = document.getElementById('btnTemplate');
+
   let parsedGroups = [];
   let mdText = '';
+
+  // ---- Template download ----
+  btnTemplate.addEventListener('click', () => {
+    fetch('issues_テンプレート.md')
+      .then(res => res.blob())
+      .then(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'issues_テンプレート.md';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+  });
 
   // ---- File select ----
   mdFileInput.addEventListener('change', () => {
@@ -301,7 +317,7 @@
 
   // ---- parseMarkdown ----
   function parseMarkdown(text) {
-    const lines = text.split('\n');
+    const lines = text.replace(/\r/g, '').split('\n');
     let inCodeBlock = false;
     const groupStarts = [];
 
@@ -309,7 +325,7 @@
       const trimmed = lines[i].trim();
       if (trimmed.startsWith('```')) {
         inCodeBlock = !inCodeBlock;
-      } else if (!inCodeBlock && trimmed.startsWith('####')) {
+      } else if (!inCodeBlock && /^###\s/.test(trimmed) && !/^####/.test(trimmed)) {
         groupStarts.push(i);
       }
     }
@@ -318,28 +334,26 @@
     for (let gi = 0; gi < groupStarts.length; gi++) {
       const startIdx = groupStarts[gi];
       const endIdx   = gi + 1 < groupStarts.length ? groupStarts[gi + 1] : lines.length;
-      const groupName    = lines[startIdx].replace(/^#{4}\s*/, '').trim();
+      const groupName    = lines[startIdx].replace(/^###\s*/, '').trim();
       const groupContent = lines.slice(startIdx + 1, endIdx).join('\n');
 
-      // タイトル
-      const titlesMatch = groupContent.match(/タイトル:\s*\n([\s\S]*?)(?=\n本文:)/);
+      // タイトル（##### タイトル セクション内のリスト項目）
+      const titlesMatch = groupContent.match(/#{5}\s*タイトル\s*\n([\s\S]*?)(?=\n#{5}\s)/);
       const titles = titlesMatch
-        ? titlesMatch[1].split('\n').map(t => t.trim()).filter(Boolean)
+        ? titlesMatch[1].split('\n').map(t => t.replace(/^-\s*/, '').trim()).filter(Boolean)
         : [];
 
-      // 本文
-      const bodyMatch = groupContent.match(/本文:\n```([\s\S]*?)```/);
+      // 本文（##### 本文 セクション内のコードブロック）
+      const bodyMatch = groupContent.match(/#{5}\s*本文\s*\n\s*```([\s\S]*?)```/);
       const body = bodyMatch ? bodyMatch[1].trim() : '';
 
-      // ラベル
-      const labelsMatch = groupContent.match(/ラベル:\n([\s\S]*?)(?=\n|$)/);
+      // ラベル（##### ラベル セクション内のリスト項目）
+      const labelsMatch = groupContent.match(/#{5}\s*ラベル\s*\n([\s\S]+)$/);
       const labels = [];
       if (labelsMatch) {
         labelsMatch[1].split('\n').forEach(line => {
-          line.split(',').forEach(l => {
-            const v = l.trim();
-            if (v) labels.push(v);
-          });
+          const v = line.replace(/^-\s*/, '').trim();
+          if (v) labels.push(v);
         });
       }
 
