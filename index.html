@@ -381,6 +381,9 @@
         const chips = g.labels.map(l => `<span class="label-chip">${escHtml(l)}</span>`).join('');
         html += `<div class="issue-row"><span class="issue-title">${escHtml(title)}</span>${chips}</div>`;
       });
+      if (g.body) {
+        html += `<details style="margin-top:6px;font-size:13px;"><summary style="cursor:pointer;color:#57606a;">本文を表示</summary><pre style="margin-top:6px;padding:10px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;font-size:12px;white-space:pre-wrap;overflow-x:auto;">${escHtml(g.body)}</pre></details>`;
+      }
       html += `</div>`;
     });
     html += `<p style="margin-top:8px;font-size:13px;color:#57606a;">合計 ${total} 件の Issue を作成します。</p>`;
